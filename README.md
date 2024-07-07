@@ -6,4 +6,4 @@
 **Krispr** performs xxxx 
 
 ### Contact Info
-Xing Wu (wuxingtom_at_gmail.com)/ Wei Wei (doublevi123_at_gmail.com)
+Wei Wei (doublevi123_at_gmail.com) / Xing Wu (wuxingtom_at_gmail.com)
