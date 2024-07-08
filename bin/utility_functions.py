@@ -29,17 +29,19 @@ def read_fasta_file(file):
 
 			## search for > for the header
 
-			m = re.search(">(.*)",line)
-
-			if m:
-				name = m.group(1)
-				
+			if line.startswith(">"):
+				name = line[1:]
 				if name not in sequences:
 					sequences[name] = ""
+				else:
+					print("There are multiple %s sequences." %(name))
+					sys.exit("ERROR: There are duplicated names in your fasta file. Please double check! ")
 
 			else:
-				sequences[name] = sequences[name] + line
-
+				if name is None:
+					sys.exit("ERROR: The fasta file format is incorrect. No header line found before sequence.")
+				sequences[name] += line
+	print("Finished loading sequences.")
 	return(sequences)
 
 
@@ -47,6 +49,7 @@ def read_fasta_file(file):
 def count_kmers_from_seq(sequences,k,n):
 
 	ALL_K_mers = []
+	it = 1
 
 	for key in sequences:
 
@@ -68,6 +71,10 @@ def count_kmers_from_seq(sequences,k,n):
 
 			start = start + 1 + n
 			end = start + k
+		it += 1
+
+		if it %100 ==0 :
+			print("Processed %i sequences, found %i unique kmers so far" %(it,len(ALL_K_mers)))
 	return(ALL_K_mers)
 
 def generate_DM(sequences,ALL_K_mers,k,n):
@@ -84,9 +91,10 @@ def generate_DM(sequences,ALL_K_mers,k,n):
 		for j in range(c):
 			DM_matrix[i,j] = sequence.count(ALL_K_mers[j])
 
-
 	presence_matrix= np.where(DM_matrix != 0, 1, 0)
-	
+
+	print("Finished counting unique kmer dosage for all sequences.")
+
 	return(sequence_names,DM_matrix,presence_matrix)
 
 		
