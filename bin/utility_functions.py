@@ -46,7 +46,7 @@ def read_fasta_file(file):
 
 def count_kmers_from_seq(sequences,k,n):
 
-	ALL_K_mers = {}
+	ALL_K_mers = []
 
 	for key in sequences:
 
@@ -62,11 +62,9 @@ def count_kmers_from_seq(sequences,k,n):
 
 			kmer = sequence[start:end]
 
-			### count kmers 
-			if kmer in ALL_K_mers:
-				ALL_K_mers[kmer] += 1
-			else:
-				ALL_K_mers[kmer] = 1
+			### identify unique kmers 
+			if kmer not in ALL_K_mers:
+				ALL_K_mers.append(kmer)
 
 			start = start + 1 + n
 			end = start + k
@@ -78,40 +76,18 @@ def generate_DM(sequences,ALL_K_mers,k,n):
 	c = len(ALL_K_mers)
 
 	DM_matrix = np.zeros((r,c),dtype=int)
-	kmers = list(ALL_K_mers.keys())
 	sequence_names = list(sequences.keys())
 
-	for i in range(len(sequence_names)):
+	for i in range(r):
 		sequence = sequences[sequence_names[i]]
-		
-		start = 0
-		end = start + k
 
-		l = len(sequence)
+		for j in range(c):
+			DM_matrix[i,j] = sequence.count(ALL_K_mers[j])
 
-		while( start < l - k + 1):
-
-			kmer = sequence[start:end]
-			index = kmers.index(kmer)
-			
-			if type(index) is not list:
-				j = index
-				DM_matrix[i,j] += 1
-			else:
-				for j in index:
-					DM_matrix[i,j] += 1
-
-			start = start + 1 + n
-			end = start + k
-	
-	## Check if DM matrix is constructed correctly
-	for i in range(c):
-		if ALL_K_mers[kmers[i]] != np.sum(DM_matrix[:,i]):
-			sys.exit('SOMETHING WRONG.')
 
 	presence_matrix= np.where(DM_matrix != 0, 1, 0)
 	
-	return(DM_matrix,presence_matrix)
+	return(sequence_names,DM_matrix,presence_matrix)
 
 		
 
