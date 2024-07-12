@@ -2,6 +2,8 @@ import re
 import argparse
 import numpy as np
 import sys
+import pandas as pd
+
 
 
 def parse_arguments():
@@ -12,7 +14,12 @@ def parse_arguments():
 	parser.add_argument('-f',type = str, action= 'store',dest='sequence',help='the multi-fasta file')
 	parser.add_argument('-k',type = int, action= 'store',dest='k',default=7)
 	parser.add_argument('-g',type = int, action = 'store', dest = 'gap',default=0)
-	parser.add_argument('-n',type = int, action = 'store', dest = 'threads',default=1)
+	parser.add_argument('-t',type = str, action = 'store', dest = 'task')
+	parser.add_argument('-x',type = str, action = 'store', dest = 'geno')
+	parser.add_argument('-c',type = str, action = 'store', dest = 'covar')
+	parser.add_argument('-y',type = str, action = 'store', dest = 'pheno')
+	parser.add_argument('-n',type = int, action = 'store', default = 5, dest = "num")
+	parser.add_argument('-v',action = 'store_true', dest = 'verbose',default = False, help = "print out each MCMC iteration")
 	parser.add_argument('-o',type = str, action = 'store', dest = 'output',help = "the prefix of the output files")
 	args = parser.parse_args()
 
@@ -96,6 +103,29 @@ def generate_DM(sequences,ALL_K_mers,k,n):
 	print("Finished counting unique kmer dosage for all sequences.")
 
 	return(sequence_names,DM_matrix,presence_matrix)
+
+def read_input_files(geno,pheno,covar):
+
+	X = pd.read_csv(str(geno),sep="\t")
+	n,p = X.shape
+	kmer_names = X.columns.values.tolist()
+
+	y = []
+	with open(str(pheno),"r") as f:
+		for line in f:
+			line = line.strip("\n")
+			y.append(float(line))
+
+	y = np.asarray(y)
+
+	if covar is None:
+		C = np.ones(n)
+		C = C.reshape(n, 1)
+	else:
+		C =  np.array(pd.read_csv(str(covar),sep="\t",header=None)) 
+
+	return(y,X,kmer_names,C)
+
 
 		
 
