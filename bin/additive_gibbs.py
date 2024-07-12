@@ -200,7 +200,7 @@ def sampling(verbose,y,C,HapDM,iters,prefix,num,trace_container,gamma_container,
 				max_z.append(np.amax(np.absolute(sigmae_zscores)))
 				
 				if  np.amax(max_z) < 1.5:
-					print("convergence has been reached at %i iterations." %(it))
+					print("Chain %i: convergence has been reached at %i iterations." %(num,it))
 					break
 
 				else:
@@ -219,8 +219,8 @@ def sampling(verbose,y,C,HapDM,iters,prefix,num,trace_container,gamma_container,
 					burn_in_iter += 1000
 					iters += 1000
 
-			if (it - burn_in_iter) >= 0 and (it - burn_in_iter ) % 1000 == 0 and verbose:
-				print("%i iterations have sampled" %(it), str(after - before),trace[it-burn_in_iter,:])
+			if (it - burn_in_iter) >= 0 and (it - burn_in_iter ) % 1000 == 0 :
+				print("Chain %i has sampled %i iterations " %(num,it), str(after - before),trace[it-burn_in_iter,:])
 
 			it += 1
 	
