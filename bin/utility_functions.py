@@ -108,7 +108,7 @@ def read_input_files(geno,pheno,covar):
 
 	X = pd.read_csv(str(geno),sep="\t")
 	n,p = X.shape
-	kmer_names = X.columns.values.tolist()
+	kmer_names = np.array(X.columns.values.tolist())
 
 	y = []
 	with open(str(pheno),"r") as f:
@@ -125,6 +125,25 @@ def read_input_files(geno,pheno,covar):
 		C =  np.array(pd.read_csv(str(covar),sep="\t",header=None)) 
 
 	return(y,X,kmer_names,C)
+
+def fdr_calculation(kmer_pip_median):
+
+	ordered_index = np.argsort(kmer_pip_median)[::-1]
+
+	sorted_kmer_pip = kmer_pip_median[ordered_index]
+
+	## FDR calculation from sorted pip values
+
+	fdr = []
+
+	for i in range(len(sorted_kmer_pip)):
+		if i == 0:
+			fdr.append( 1 - sorted_kmer_pip[i])
+		else:
+			fdr.append( 1 - np.mean(sorted_kmer_pip[:i+1]))
+
+	return(ordered_index,fdr)
+
 
 
 		

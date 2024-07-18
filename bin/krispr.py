@@ -84,21 +84,37 @@ def main():
 		trace_posterior_sd_median = np.median(trace_posterior_sd,axis=0)
 		kmer_pip_median = np.median(kmer_pip,axis=0)
 
+
+		## calculate FDR for different kmers
+		index,kmer_fdr = uf.fdr_calculation(kmer_pip_median)
+		
+		## sort pip, kmer names, beta and beta_sd based on pip
+		sorted_kmer_names = kmer_names[index]
+		sorted_kmer_pip = kmer_pip_median[index]
+		sorted_beta_median = beta_posterior_median[index]
+		sorted_beta_sd_median = beta_posterior_sd_median[index]
+
+
 		OUTPUT_KMER = open(args.output+"_kmer_pip.txt","w")
-		for i in range(len(kmer_pip_median)):
-			print("%s\t%s" %(kmer_names[i],kmer_pip_median[i]),file = OUTPUT_KMER)
+		print("%s\t%s\t%s" %("kmer_name","pip","fdr"),file = OUTPUT_KMER)
+		for i in range(len(sorted_kmer_names)):
+			print("%s\t%s\t%s" %(sorted_kmer_names[i],sorted_kmer_pip[i],kmer_fdr[i]),file = OUTPUT_KMER)
 
 		OUTPUT_ALPHA = open(args.output+"_alpha.txt","w")
+		print("%s\t%s" %("covariate_effect","covariate_effect_sd"),file = OUTPUT_ALPHA)
 		for i in range(len(alpha_posterior_median)):
 			print("%f\t%f" %(alpha_posterior_median[i],alpha_posterior_sd_median[i]),file = OUTPUT_ALPHA)
 
 		OUTPUT_BETA = open(args.output+"_beta.txt","w")
-		for i in range(len(beta_posterior_median)):
-			print("%s\t%f\t%f" %(kmer_names[i],beta_posterior_median[i],beta_posterior_sd_median[i]),file = OUTPUT_BETA)
+		print("%s\t%s\t%s" %("kmer_name","kmer_effect","kmer_effect_sd"),file = OUTPUT_BETA)
+		for i in range(len(sorted_kmer_names)):
+			print("%s\t%f\t%f" %(sorted_kmer_names[i],sorted_beta_median[i],sorted_beta_sd_median[i]),file = OUTPUT_BETA)
 
+
+		trace_variables = ["Sigma_1","Sigma_e","Large_Effect_Kmer_Proportion","Variance_Explained","Num_Causal_Kmer"]
 		OUTPUT_TRACE = open(args.output+"_trace.txt","w")
 		for i in range(len(trace_posterior_median)):
-			print("%f\t%f" %(trace_posterior_median[i],trace_posterior_sd_median[i]),file = OUTPUT_TRACE)
+			print("%s\t%f\t%f" %(trace_variables[i],trace_posterior_median[i],trace_posterior_sd_median[i]),file = OUTPUT_TRACE)
 
 	else:
 		sys.exit("ERROR: Please provide the name of the task: count or mapping. Details see the manual (-h).")
