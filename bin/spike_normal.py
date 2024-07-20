@@ -1,12 +1,22 @@
+
 import numpy as np
 import scipy as sp
 import math
 import pandas as pd 
 import time
-import sys
 import geweke
 import os
 import gc
+import sys
+
+
+def sample_gamma(beta,sigma_0,sigma_1,pie):
+	p = np.empty(len(beta))
+	d1 = pie*sp.stats.norm.pdf(beta,loc=0,scale=sigma_1)
+	d0 = (1-pie)*sp.stats.norm.pdf(beta,loc=0,scale=sigma_0)
+	p = d1/(d0+d1)
+	gamma = np.random.binomial(1,p)
+	return(gamma)
 
 def sample_pie(gamma,pie_a,pie_b):
 	a_new = np.sum(gamma)+pie_a
@@ -30,66 +40,57 @@ def sample_sigma_e(y,H_beta,C_alpha,a_e,b_e):
 	sigma_e_new = math.sqrt(1/sigma_e_neg2)
 	return(sigma_e_new)
 
-def sample_alpha(y,H_beta,C,alpha,sigma_e,C_alpha):
+def sample_alpha(y,H_beta,C_alpha,C,alpha,sigma_e,C_norm_2):
 
 	r,c = C.shape
+
 	if c == 1:
-		new_variance = 1/(np.linalg.norm(C[:,0])**2*sigma_e**-2)
+		#new_variance = 1/(np.linalg.norm(C[:,0])**2*sigma_e**-2)
+		new_variance = 1/(C_norm_2[0]*sigma_e**-2)
 		new_mean = new_variance*np.dot((y-H_beta),C[:,0])*sigma_e**-2
 		alpha = np.random.normal(new_mean,math.sqrt(new_variance))
-		C_alpha = C[:,0] * alpha 
+		C_alpha = C[:,0] * alpha
 	else:
 		for i in range(c):
-			new_variance = 1/(np.sum(C[:,i]**2)*sigma_e**-2)
+			#new_variance = 1/(np.linalg.norm(C[:,i])**2*sigma_e**-2)
+			new_variance = 1/(C_norm_2[i]*sigma_e**-2)
 			C_alpha_negi = C_alpha - C[:,i] * alpha[i]
 			new_mean = new_variance*np.dot(y-C_alpha_negi-H_beta,C[:,i])*sigma_e**-2
 			alpha[i] = np.random.normal(new_mean,math.sqrt(new_variance))
 			C_alpha = C_alpha_negi + C[:,i] * alpha[i]
+
 	return(alpha,C_alpha)
 
+def sample_beta(y,C_alpha,H_beta,H,beta,gamma,sigma_0,sigma_1,sigma_e,H_norm_2):
 
-def sample_gamma(y,C_alpha,H,beta,pie,sigma_1,sigma_e,gamma,H_beta):
 	sigma_e_neg2 = sigma_e**-2
+	sigma_0_neg2 = sigma_0**-2
 	sigma_1_neg2 = sigma_1**-2
-	e = y - C_alpha -  H_beta 
-	residual_negi = np.transpose(np.ones((len(beta),len(y))) * e)+ H * beta
-	variance = 1/(np.sum(H**2,axis=0) * sigma_e_neg2+sigma_1_neg2)
-	mean = variance * np.sum(residual_negi * H,axis=0) * sigma_e_neg2
-	f = np.sqrt(1/(np.sum(H**2,axis=0) * sigma_1**2 * sigma_e_neg2 + 1))
-	gamma_0_pie = (1-pie) / ((1-pie)+pie*(f*np.exp(0.5*mean**2/variance)))	
-	gamma = np.random.binomial(1,1-gamma_0_pie)
-	return(gamma)
 
-def sample_beta(y,C_alpha,H,beta,gamma,sigma_1,sigma_e,H_beta):
+	for i in range(len(beta)):
+		H_beta_negi = H_beta - H[:,i] * beta[i]
+		residual = y - C_alpha -  H_beta + H[:,i] * beta[i]
+		new_variance = 1/(H_norm_2[i]*sigma_e_neg2+(1-gamma[i])*sigma_0_neg2+gamma[i]*sigma_1_neg2)
+		new_mean = new_variance*np.dot(residual,H[:,i])*sigma_e_neg2
+		beta[i] = np.random.normal(new_mean,math.sqrt(new_variance))
+		H_beta = H_beta_negi + H[:,i] * beta[i]
 
-	sigma_e_neg2 = sigma_e**-2
-	sigma_1_neg2 = sigma_1**-2	
-	for j in range(len(beta)):
-		if gamma[j] == 0:
-			H_beta = H_beta - H[:,j] * beta[j]
-			beta[j] = 0
-		else:
-			H_beta_negj = H_beta - H[:,j] * beta[j]
-			new_variance = 1/(np.sum(H[:,j]**2)*sigma_e_neg2+sigma_1_neg2)
-			residual = y - C_alpha -  H_beta + H[:,j] * beta[j]
-			new_mean = new_variance*np.dot(residual,H[:,j])*sigma_e_neg2
-			beta[j] = np.random.normal(new_mean,math.sqrt(new_variance))
-			if abs(beta[j]) < 0.05:
-				beta[j] = 0
-			H_beta = H_beta_negj + H[:,j] * beta[j]
 	return(beta,H_beta)
 
-def sampling(verbose,y,C,HapDM,iters,prefix,num,trace_container,gamma_container,beta_container,alpha_container):
+def sampling(verbose,y,C,HapDM,sig0_initiate,iters,prefix,num,trace_container,gamma_container,beta_container,alpha_container):
 
 	## set random seed for the process
 	np.random.seed(int(time.time()) + os.getpid())
 
 	#initiate beta,gamma and H matrix
-	C_r, C_c = C.shape
-
 	H = np.array(HapDM)
 
 	H_r,H_c = H.shape
+
+
+	C_c = C.shape[1]
+
+
 	##specify hyper parameters
 	pie_a = 1
 	pie_b = H_c / 100
@@ -98,20 +99,13 @@ def sampling(verbose,y,C,HapDM,iters,prefix,num,trace_container,gamma_container,
 	a_e = 1
 	b_e = 1
 
+	sigma_0 = sig0_initiate
 	sigma_1 = math.sqrt(1/np.random.gamma(a_sigma,b_sigma))
 	sigma_e = math.sqrt(1/np.random.gamma(a_e,b_e))
 	pie = np.random.beta(pie_a,pie_b)
+
+	print("initiation for chain %i:" %(num) ,sigma_1,sigma_e,pie)
 	
-	#print("initiate:",sigma_1,sigma_e,pie)
-
-	#initiate beta,gamma and H matrix
-	C_r, C_c = C.shape
-
-	H = np.array(HapDM)
-
-	#for simulation only
-	H_r,H_c = H.shape
-
 	#initiate alpha, alpha_trace, beta_trace and gamma_trace
 
 	it = 0
@@ -128,7 +122,7 @@ def sampling(verbose,y,C,HapDM,iters,prefix,num,trace_container,gamma_container,
 
 	for i in range(H_c):
 		if gamma[i] == 0:
-			beta[i] = 0
+			beta[i] = np.random.normal(0,sigma_0)
 		else:
 			beta[i] = np.random.normal(0,sigma_1) 
 
@@ -137,26 +131,67 @@ def sampling(verbose,y,C,HapDM,iters,prefix,num,trace_container,gamma_container,
 	H_beta = np.matmul(H,beta)
 	C_alpha = np.matmul(C,alpha)
 
+
+	## precompute some variables 
+
+	C_norm_2 = np.sum(C**2,axis=0)
+	H_norm_2 = np.sum(H**2,axis=0)
+
+	bad_count = 0
+
+
 	while it < iters:
 		before = time.time()
 		sigma_1 = sample_sigma_1(beta,gamma,a_sigma,b_sigma)
-		pie = sample_pie(gamma,pie_a,pie_b)
+		if sigma_1 < 0.05:
+			sigma_1 = 0.05
+			pie = 0
+		else:
+			pie = sample_pie(gamma,pie_a,pie_b)
 		sigma_e = sample_sigma_e(y,H_beta,C_alpha,a_e,b_e)
-		gamma = sample_gamma(y,C_alpha,H,beta,pie,sigma_1,sigma_e,gamma,H_beta)
-		alpha,C_alpha = sample_alpha(y,H_beta,C,alpha,sigma_e,C_alpha)
-		beta,H_beta = sample_beta(y,C_alpha,H,beta,gamma,sigma_1,sigma_e,H_beta)
+		gamma = sample_gamma(beta,sigma_0,sigma_1,pie)
+		alpha,C_alpha = sample_alpha(y,H_beta,C_alpha,C,alpha,sigma_e,C_norm_2)
+		beta,H_beta = sample_beta(y,C_alpha,H_beta,H,beta,gamma,sigma_0,sigma_1,sigma_e,H_norm_2)
 		genetic_var = np.var(H_beta)
-		pheno_var = np.var(y - C_alpha)
-		large_beta_ratio = np.sum(np.absolute(beta) > 0.3) / H_c
+		pheno_var = np.var(y)
+		large_beta = np.absolute(beta) > 0.3
+		large_beta_ratio = np.sum(large_beta) / len(beta)
 		total_heritability = genetic_var / pheno_var
+
 		after = time.time()
 		if it > 100 and total_heritability > 1:
-			#print("unrealistic beta sample",it,pie,sigma_1,sigma_e,sum(gamma),large_beta_ratio,total_heritability)
+			bad_count += 1
+			if bad_count > 2000:
+				print("Chain %i has enterred a bad state, restarting it" %(num))
+				sigma_1 = math.sqrt(1/np.random.gamma(a_sigma,b_sigma))
+				sigma_e = math.sqrt(1/np.random.gamma(a_e,b_e))
+				pie = np.random.beta(pie_a,pie_b)
+				it = 0
+				trace = np.empty((iters-2000,5))
+				alpha_trace = np.empty((iters-2000,C_c))
+				gamma_trace = np.empty((iters-2000,H_c))
+				beta_trace = np.empty((iters-2000,H_c))
+				top5_beta_trace = np.empty((iters-2000,5))
+
+				alpha = np.random.random(size = C_c)
+				gamma = np.random.binomial(1,pie,H_c)
+				beta = np.array(np.zeros(H_c))
+
+				for i in range(H_c):
+					if gamma[i] == 0:
+						beta[i] = np.random.normal(0,sigma_0)
+					else:
+						beta[i] = np.random.normal(0,sigma_1) 
+
+				H_beta = np.matmul(H,beta)
+				C_alpha = np.matmul(C,alpha)
+				bad_count = 0
+				print(it)
 			continue
 
 		else:
 			if verbose:
-				print(it,str(after - before),pie,sigma_1,sigma_e,sum(gamma),large_beta_ratio,total_heritability)
+				print(num,it,str(after - before),sigma_1,sigma_e,large_beta_ratio,total_heritability,sum(gamma))
 
 			if it >= burn_in_iter:
 				trace[it-burn_in_iter,:] = [sigma_1,sigma_e,large_beta_ratio,total_heritability,sum(gamma)]
@@ -185,12 +220,12 @@ def sampling(verbose,y,C,HapDM,iters,prefix,num,trace_container,gamma_container,
 				max_z.append(np.amax(np.absolute(pie_zscores)))
 
 				#convergence for total heritability
-				after_burnin_var = trace[:,3]
+				after_burnin_var = trace[:,4]
 				var_zscores = geweke.geweke(after_burnin_var)[:,1]
 				max_z.append(np.amax(np.absolute(var_zscores)))
 
 				# #convergence for sigma_1
-				# after_burnin_sigma1 = trace[:,0]
+				# after_burnin_sigma1 = trace[:,1]
 				# sigma1_zscores = geweke.geweke(after_burnin_sigma1)[:,1]
 				# max_z.append(np.amax(np.absolute(sigma1_zscores)))
 
@@ -219,16 +254,11 @@ def sampling(verbose,y,C,HapDM,iters,prefix,num,trace_container,gamma_container,
 					burn_in_iter += 1000
 					iters += 1000
 
-			if (it - burn_in_iter) >= 0 and (it - burn_in_iter ) % 1000 == 0 :
+			if (it - burn_in_iter) >= 0 and (it - burn_in_iter ) % 1000 == 0:
 				print("Chain %i has sampled %i iterations " %(num,it), str(after - before),trace[it-burn_in_iter,:])
 
 			it += 1
 	
-	# trace_container[num] = trace
-	# alpha_container[num] = alpha_trace
-	# beta_container[num] = beta_trace
-	# gamma_container[num] = gamma_trace
-
 	# trace values
 	trace_container[num] = {'avg': np.mean(trace,axis=0),
 							'sd' : np.std(trace,axis=0)}
@@ -252,7 +282,4 @@ def sampling(verbose,y,C,HapDM,iters,prefix,num,trace_container,gamma_container,
 	gamma_container[num] = {'kmer':np.mean(gamma_trace,axis=0)}
 	del gamma_trace
 	gc.collect()
-
-
-
 

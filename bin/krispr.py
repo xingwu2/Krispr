@@ -8,7 +8,8 @@ import sys
 
 import utility_functions as uf
 import multiprocessing as mp
-import additive_gibbs as add
+import spike_point_mass as sp_pointmass
+import spike_normal as sp_normal
 
 def main():
 
@@ -50,10 +51,17 @@ def main():
 
 		processes = []
 
-		for num in range(args.num):
-			p = mp.Process(target = add.sampling, args=(args.verbose,y,C,X,12000,args.output,num,trace_container,gamma_container,beta_container,alpha_container))
-			processes.append(p)
-			p.start()
+		if args.model == 1:
+			for num in range(args.num):
+				p = mp.Process(target = sp_normal.sampling,args=(args.verbose,y,C,X,args.s0,12000,args.output,num,trace_container,gamma_container,beta_container,alpha_container))
+				processes.append(p)
+				p.start()
+
+		else:
+			for num in range(args.num):
+				p = mp.Process(target = sp_pointmass.sampling, args=(args.verbose,y,C,X,12000,args.output,num,trace_container,gamma_container,beta_container,alpha_container))
+				processes.append(p)
+				p.start()
 
 		for process in processes:
 			process.join()
