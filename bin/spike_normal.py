@@ -137,9 +137,6 @@ def sampling(verbose,y,C,HapDM,sig0_initiate,iters,prefix,num,trace_container,ga
 	C_norm_2 = np.sum(C**2,axis=0)
 	H_norm_2 = np.sum(H**2,axis=0)
 
-	bad_count = 0
-
-
 	while it < iters:
 		before = time.time()
 		sigma_1 = sample_sigma_1(beta,gamma,a_sigma,b_sigma)
@@ -160,33 +157,6 @@ def sampling(verbose,y,C,HapDM,sig0_initiate,iters,prefix,num,trace_container,ga
 
 		after = time.time()
 		if it > 100 and total_heritability > 1:
-			bad_count += 1
-			if bad_count > 2000:
-				print("Chain %i has enterred a bad state, restarting it" %(num))
-				sigma_1 = math.sqrt(1/np.random.gamma(a_sigma,b_sigma))
-				sigma_e = math.sqrt(1/np.random.gamma(a_e,b_e))
-				pie = np.random.beta(pie_a,pie_b)
-				it = 0
-				trace = np.empty((iters-2000,5))
-				alpha_trace = np.empty((iters-2000,C_c))
-				gamma_trace = np.empty((iters-2000,H_c))
-				beta_trace = np.empty((iters-2000,H_c))
-				top5_beta_trace = np.empty((iters-2000,5))
-
-				alpha = np.random.random(size = C_c)
-				gamma = np.random.binomial(1,pie,H_c)
-				beta = np.array(np.zeros(H_c))
-
-				for i in range(H_c):
-					if gamma[i] == 0:
-						beta[i] = np.random.normal(0,sigma_0)
-					else:
-						beta[i] = np.random.normal(0,sigma_1) 
-
-				H_beta = np.matmul(H,beta)
-				C_alpha = np.matmul(C,alpha)
-				bad_count = 0
-				print(it)
 			continue
 
 		else:
