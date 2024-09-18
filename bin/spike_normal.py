@@ -99,10 +99,14 @@ def sampling(verbose,y,C,HapDM,sig0_initiate,iters,prefix,num,trace_container,ga
 	a_e = 1
 	b_e = 1
 
-	sigma_0 = sig0_initiate
+	H_var = np.sum(np.var(H,axis=0))
+	sigma_0 = np.sqrt(np.var(y) / H_var * sig0_initiate)
 	sigma_1 = math.sqrt(1/np.random.gamma(a_sigma,b_sigma))
 	sigma_e = math.sqrt(1/np.random.gamma(a_e,b_e))
 	pie = np.random.beta(pie_a,pie_b)
+
+	print("There are %i k-mers in the model, and to set the background variation %f of the total phenotypic variation.\nWe set the sigma 0 to be %f" %(H_c,sig0_initiate,sigma_0) )
+
 
 	print("initiation for chain %i:" %(num) ,sigma_1,sigma_e,pie)
 	
@@ -131,17 +135,18 @@ def sampling(verbose,y,C,HapDM,sig0_initiate,iters,prefix,num,trace_container,ga
 	H_beta = np.matmul(H,beta)
 	C_alpha = np.matmul(C,alpha)
 
-
 	## precompute some variables 
 
 	C_norm_2 = np.sum(C**2,axis=0)
 	H_norm_2 = np.sum(H**2,axis=0)
 
+	bad_iter = 0
+
 	while it < iters:
 		before = time.time()
 		sigma_1 = sample_sigma_1(beta,gamma,a_sigma,b_sigma)
-		if sigma_1 < 0.05:
-			sigma_1 = 0.05
+		if sigma_1 < sigma_0 * 5:
+			sigma_1 = sigma_0 * 5
 			pie = 0
 		else:
 			pie = sample_pie(gamma,pie_a,pie_b)
@@ -157,6 +162,38 @@ def sampling(verbose,y,C,HapDM,sig0_initiate,iters,prefix,num,trace_container,ga
 
 		after = time.time()
 		if it > 100 and total_heritability > 1:
+			bad_iter += 1
+			if bad_iter > 3000:
+				print("Chain %i has entered a bad state, restarting it." %(num))
+
+				## re-initiation of the hyper-parameters
+				sigma_0 = np.sqrt(np.var(y) / H_var * sig0_initiate)
+				sigma_1 = math.sqrt(1/np.random.gamma(a_sigma,b_sigma))
+				sigma_e = math.sqrt(1/np.random.gamma(a_e,b_e))
+				pie = np.random.beta(pie_a,pie_b)
+				it = 0
+				burn_in_iter = 2000
+				trace = np.empty((iters-2000,5))
+				alpha_trace = np.empty((iters-2000,C_c))
+				gamma_trace = np.zeros((iters-2000,H_c),dtype=np.int8)
+				beta_trace = np.empty((iters-2000,H_c))
+				top5_beta_trace = np.empty((iters-2000,5))
+
+				alpha = np.random.random(size = C_c)
+				gamma = np.random.binomial(1,pie,H_c).astype(np.int8)
+				beta = np.array(np.zeros(H_c))
+
+				for i in range(H_c):
+					if gamma[i] == 0:
+						beta[i] = np.random.normal(0,sigma_0)
+					else:
+						beta[i] = np.random.normal(0,sigma_1) 
+				H_beta = np.matmul(H,beta)
+				C_alpha = np.matmul(C,alpha)
+
+				## re-start the counting the bad iterations
+				bad_iter = 0
+
 			continue
 
 		else:
