@@ -100,12 +100,15 @@ def sampling(verbose,y,C,HapDM,sig0_initiate,iters,prefix,num,trace_container,ga
 	b_e = 1
 
 	H_var = np.sum(np.var(H,axis=0))
-	sigma_0 = np.sqrt(np.var(y) / H_var * sig0_initiate)
+	
+	sigma_0 = sig0_initiate
 	sigma_1 = math.sqrt(1/np.random.gamma(a_sigma,b_sigma))
 	sigma_e = math.sqrt(1/np.random.gamma(a_e,b_e))
 	pie = np.random.beta(pie_a,pie_b)
 
-	print("There are %i k-mers in the model, and to set the background variation %f of the total phenotypic variation.\nWe set the sigma 0 to be %f" %(H_c,sig0_initiate,sigma_0) )
+	var_back = sigma_0**2 * H_var /np.var(y)
+
+	print("There are %i k-mers in the model, The the sigma 0 to be %f and the background kmers explain variation %f of the total phenotypic variation.\n" %(H_c,sigma_0,var_back) )
 
 
 	print("initiation for chain %i:" %(num) ,sigma_1,sigma_e,pie)
