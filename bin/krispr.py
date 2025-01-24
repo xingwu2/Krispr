@@ -3,6 +3,7 @@ import os
 import numpy as np
 import pandas as pd
 import sys
+import time
 
 #import utility scripts
 
@@ -26,6 +27,12 @@ def main():
 		## STEP 2: identify unique kmers from the sequences
 
 		ALL_K_mers = uf.count_kmers_from_seq(sequences,args.k,args.gap)
+		print("Finished counting unique k-mers. Identified %d kmers in total" %(len(ALL_K_mers)))
+
+		## STEP 3: perform sequence based clustering on unique kmers (default = True)
+
+		if args.cluster:
+			kmer_clusters = uf.kmer_clustering(ALL_K_mers)
 
 		## STEP 3: generate the kmer design matrix for each sequence, the number indicates the dosage / presence of the kmer
 
