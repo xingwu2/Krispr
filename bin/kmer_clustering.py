@@ -8,7 +8,7 @@ from sklearn import metrics
 from sklearn.cluster import DBSCAN
 import scipy.cluster.hierarchy as sch
 from sklearn.neighbors import kneighbors_graph
-from scipy.spatial.distance import pdist, squareform
+from scipy.spatial.distance import pdist, squareform,cdist
 import time
 
 
@@ -47,12 +47,17 @@ def kmer_one_hot_decoding(kmer_numeric):
 	return(kmer_decode)
 
 def reorder_kmers(kmer_matrix):
-	dists = squareform(pdist(kmer_matrix))
-	affinity_matrix = np.exp(- dists * dists)
-	np.fill_diagonal(affinity_matrix, 0)
-	degree = np.sum(affinity_matrix,axis=1)
-	order = np.argsort(degree)[::-1]
+	r,c = kmer_matrix.shape
+	kmer_matrix = kmer_matrix.astype(np.float32)
+	batch_size=100
+	degree = []
+	for i in range(0,r,batch_size):
+		X = kmer_matrix[i:i+batch_size,:]
+		distance_matrix = cdist(X, kmer_matrix, metric='euclidean')
+		affinity_matrix = np.exp(- distance_matrix * distance_matrix)
+		degree.extend(np.array(np.sum(affinity_matrix,axis=1) -1))
 
+	order = np.argsort(degree)[::-1]
 	return(order)
 
 def write_kmer_output(ordered_ALL_K_mers):
