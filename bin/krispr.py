@@ -8,6 +8,7 @@ import time
 #import utility scripts
 
 import utility_functions as uf
+import kmer_clustering as cluster
 import multiprocessing as mp
 import spike_point_mass as sp_pointmass
 import spike_normal as sp_normal
@@ -32,9 +33,9 @@ def main():
 		## STEP 3: perform sequence based clustering on unique kmers (default = True)
 
 		if args.cluster:
-			kmer_clusters = uf.kmer_clustering(ALL_K_mers)
+			kmer_clusters = cluster.kmer_clustering(ALL_K_mers)
 
-		## STEP 3: generate the kmer design matrix for each sequence, the number indicates the dosage / presence of the kmer
+		## STEP 4: generate the kmer design matrix for each sequence, the number indicates the dosage / presence of the kmer
 
 		sequence_names,dosage,presence = uf.generate_DM(sequences,ALL_K_mers,args.k,args.gap)
 
