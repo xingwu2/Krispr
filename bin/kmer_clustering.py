@@ -10,6 +10,15 @@ import scipy.cluster.hierarchy as sch
 from sklearn.neighbors import kneighbors_graph
 from scipy.spatial.distance import pdist, squareform,cdist
 import time
+import subprocess
+
+
+
+def cdhit_cluster(unique_kmer_fa,output,similarity,wordsize):
+	command = "cd-hit-est" + " -i " + str(unique_kmer_fa) + " -o " + str(output) + " -c " + str(similarity) + " -n " + str(wordsize) +" -r 1" +" -g 1 " + "-gap -20 " + "-gap-ext -10 " + "-l 5"
+
+	#print(command)
+	subprocess.check_call(command,shell=True)
 
 
 def kmer_one_hot_encoding(kmer):

@@ -25,26 +25,38 @@ def main():
 
 		sequences = uf.read_fasta_file(args.sequence)
 
-		## STEP 2: identify unique kmers from the sequences
+		## STEP 2: identify unique kmers from the sequences and sort Kmers based on frequency and lexicography
 
-		ALL_K_mers = uf.count_kmers_from_seq(sequences,args.k,args.gap)
-		print("Finished counting unique k-mers. Identified %d kmers in total" %(len(ALL_K_mers)))
+		kmer_counts = uf.count_kmers_from_seq(sequences,args.k,args.gap)
+		print("Finished counting unique k-mers. Identified %d unique kmers in total" %(len(kmer_counts)))
+
+		sorted_kmers = sorted(kmer_counts.keys(), key=lambda km: (-kmer_counts[km], km))
+		OUTPUT_UNIQUE_KMERS = open(args.output+"_unique_kmers.fa","w")
+		for i, kmer in enumerate(sorted_kmers):
+			print("%s\n%s" %(">kmer_"+str(i),sorted_kmers[i]),file = OUTPUT_UNIQUE_KMERS)
 
 		## STEP 3: perform sequence based clustering on unique kmers (default = True)
 
+		similarity = 1-(1.0/float(args.k)) - 0.01
+
 		if args.cluster:
-			kmer_clusters = cluster.kmer_clustering(ALL_K_mers)
+			kmer_clusters = cluster.cdhit_cluster(args.output+"_unique_kmers.fa",args.output+"_kmer_clusters",similarity,args.wordsize)
 
-		## STEP 4: generate the kmer design matrix for each sequence, the number indicates the dosage / presence of the kmer
 
-		sequence_names,dosage,presence = uf.generate_DM(sequences,ALL_K_mers,args.k,args.gap)
+		## STEP 4: generate the kmer design matrix for each sequence, the number indicates the dosage of kmer and kmer_clusters
+
+		sequence_names,dosage = uf.generate_DM(sequences,sorted_kmers,args.k,args.gap)
+
+		cluster_dosage,cluster_names = uf.generation_cluster_DM(dosage,args.output)
 
 		dosage_pd = pd.DataFrame(dosage)
-		presence_pd = pd.DataFrame(presence)
 		dosage_pd.index = sequence_names
-		presence_pd.index = sequence_names
-		dosage_pd.to_csv(args.output+"_DosageMatrix.txt",header=ALL_K_mers)
-		presence_pd.to_csv(args.output+"_IndicatorMatrix.txt",header=ALL_K_mers)
+		dosage_pd.to_csv(args.output+"_DosageMatrix.csv",header=sorted_kmers)
+
+		cluster_dosage_pd = pd.DataFrame(cluster_dosage)
+		cluster_dosage_pd.index = sequence_names
+		cluster_dosage_pd.to_csv(args.output+"_Cluster_DosageMatrix.csv",header=cluster_names)
+
 
 	elif args.task == "mapping":
 

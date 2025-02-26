@@ -4,12 +4,14 @@ import numpy as np
 import sys
 import pandas as pd
 import os
+from Bio.Seq import Seq
 from sklearn import metrics
 from sklearn.cluster import DBSCAN
 import scipy.cluster.hierarchy as sch
 from sklearn.neighbors import kneighbors_graph
 from scipy.spatial.distance import pdist, squareform
-
+import time
+from collections import defaultdict
 
 
 
@@ -21,8 +23,14 @@ def parse_arguments():
 	parser.add_argument('-f',type = str, action= 'store',dest='sequence',help='the multi-fasta file')
 	parser.add_argument('-k',type = int, action= 'store',dest='k',default=7,help = "size of the kmer")
 	parser.add_argument('-g',type = int, action = 'store', dest = 'gap',default=0,help = "the number of nucleotide gap between 2 kmers")
+
 	parser.add_argument('-t',type = str, action = 'store', dest = 'task',help = "count | mapping")
 	parser.add_argument('-l',action = 'store_true', dest = 'cluster',default = True, help = "perform clustering on unique kmers")
+
+
+	parser.add_argument('-w',type = int, action = 'store', dest = 'wordsize',default=5,help = "the wordsize for cd-hit-est")
+	parser.add_argument('-s',type = float, action = 'store', dest = 'similarity',default=0.9,help = "the similarity cutoff for cd-hit-est")
+
 	parser.add_argument('-x',type = str, action = 'store', dest = 'geno',help = "the input matrix (X) for the mapping step")
 	parser.add_argument('-c',type = str, action = 'store', dest = 'covar',help = "the covariates (C) for the mapping step")
 	parser.add_argument('-y',type = str, action = 'store', dest = 'pheno',help = "the response variable for the mapping step")
@@ -63,7 +71,7 @@ def read_fasta_file(file):
 
 def count_kmers_from_seq(sequences,k,n):
 
-	ALL_K_mers = []
+	kmer_counts = {}
 	it = 1
 
 	for key in sequences:
@@ -79,43 +87,22 @@ def count_kmers_from_seq(sequences,k,n):
 		while( start < l - k + 1):
 
 			kmer = sequence[start:end]
-
+			rev_comp = str(Seq(kmer).reverse_complement())
+			canonical_kmer = min(kmer, rev_comp)
 			### identify unique kmers 
-			if kmer not in ALL_K_mers:
-				ALL_K_mers.append(kmer)
+			if canonical_kmer not in kmer_counts:
+				kmer_counts[canonical_kmer] = 1
+			else:
+				kmer_counts[canonical_kmer] += 1
 
 			start = start + 1 + n
 			end = start + k
 		it += 1
 
 		# if it %100 ==0 :
-		# 	print("Processed %i sequences, found %i unique kmers so far" %(it,len(ALL_K_mers)))
-	return(ALL_K_mers)
+		# 	print("Processed %i sequences, found %i unique kmers so far" %(it,len(kmer_counts)))
 
-def count_kmers_from_seq_mp(semaphore,sequences,k,n,ALL_K_MERS_container):
-	with semaphore:
-		for key in sequences:
-
-			sequence = sequences[key]
-			
-			l = len(sequence)
-
-			start = 0
-
-			end = start + k
-
-			while( start < l - k + 1):
-
-				kmer = sequence[start:end]
-
-				### identify unique kmers 
-				if kmer not in ALL_K_MERS_container:
-					ALL_K_MERS_container.append(kmer)
-
-				start = start + 1 + n
-				end = start + k
-
-	return(ALL_K_mers)
+	return(kmer_counts)
 
 def kmer_one_hot_encoding(kmer):
 	kmer_numeric = np.zeros(len(kmer)*4)
@@ -151,87 +138,86 @@ def kmer_one_hot_decoding(kmer_numeric):
 
 	return(kmer_decode)
 
+# def kmer_clustering(ALL_K_mers):
 
-def kmer_clustering(ALL_K_mers):
+# 	k = len(ALL_K_mers[0])
+# 	nrow = len(ALL_K_mers)
+# 	ncol = k*4
+# 	kmer_matrix = np.empty((nrow,ncol))
 
-	k = len(ALL_K_mers[0])
-	nrow = len(ALL_K_mers)
-	ncol = k*4
-	kmer_matrix = np.empty((nrow,ncol))
+# 	one_mismatch = []
 
-	one_mismatch = []
+# 	for I in range(len(ALL_K_mers)):
+# 		kmer = ALL_K_mers[I]
+# 		kmer_numeric = kmer_one_hot_encoding(kmer)
+# 		kmer_matrix[I,:] = kmer_numeric
 
-	for I in range(len(ALL_K_mers)):
-		kmer = ALL_K_mers[I]
-		kmer_numeric = kmer_one_hot_encoding(kmer)
-		kmer_matrix[I,:] = kmer_numeric
+# 	## Use manhattan distance to find reference kmers
 
-	## Use manhattan distance to find reference kmers
+# 	manhattan_distances = np.array(squareform(pdist(kmer_matrix, metric='cityblock')),dtype=int)
+# 	one_mismatch = np.sum(manhattan_distances == 2,axis=1)
 
-	manhattan_distances = np.array(squareform(pdist(kmer_matrix, metric='cityblock')),dtype=int)
-	one_mismatch = np.sum(manhattan_distances == 2,axis=1)
+# 	kmer_rank_index = np.array(np.argsort(one_mismatch)[::-1],dtype=int)
 
-	kmer_rank_index = np.array(np.argsort(one_mismatch)[::-1],dtype=int)
+# 	K_mer_clusters = {}
 
-	K_mer_clusters = {}
+# 	ALL_K_mers_tmp = [ALL_K_mers[i] for i in kmer_rank_index]
 
-	ALL_K_mers_tmp = [ALL_K_mers[i] for i in kmer_rank_index]
+# 	index_to_be_remove_1 = []
 
-	index_to_be_remove_1 = []
+# 	## with 1 mismatch
+# 	for I in range(len(kmer_rank_index)):
 
-	## with 1 mismatch
-	for I in range(len(kmer_rank_index)):
+# 		index = kmer_rank_index[I]
 
-		index = kmer_rank_index[I]
+# 		kmer_ = ALL_K_mers[index]
 
-		kmer_ = ALL_K_mers[index]
+# 		if kmer_ in  ALL_K_mers_tmp:
 
-		if kmer_ in  ALL_K_mers_tmp:
+# 			#kmers with 1 mismatch to I only
+# 			index1 = np.where(manhattan_distances[index,:] ==2 )[0]
+# 			# initiate the cluster with a reference
+# 			K_mer_clusters[kmer_] = [kmer_]
+# 			for J in index1:
+# 				if sum(manhattan_distances[J,:] ==2) == 1:
+# 					K_mer_clusters[kmer_].append(ALL_K_mers[J])
+# 					ALL_K_mers_tmp.remove(ALL_K_mers[J])
+# 					index_to_be_remove_1.append(J)
 
-			#kmers with 1 mismatch to I only
-			index1 = np.where(manhattan_distances[index,:] ==2 )[0]
-			# initiate the cluster with a reference
-			K_mer_clusters[kmer_] = [kmer_]
-			for J in index1:
-				if sum(manhattan_distances[J,:] ==2) == 1:
-					K_mer_clusters[kmer_].append(ALL_K_mers[J])
-					ALL_K_mers_tmp.remove(ALL_K_mers[J])
-					index_to_be_remove_1.append(J)
+# 	kmer_rank_index = [item for item in kmer_rank_index if item not in index_to_be_remove_1]
+# 	manhattan_distances_removed = np.delete(manhattan_distances,index_to_be_remove_1,axis=1)
+# 	print(manhattan_distances_removed.shape)
 
-	kmer_rank_index = [item for item in kmer_rank_index if item not in index_to_be_remove_1]
-	manhattan_distances_removed = np.delete(manhattan_distances,index_to_be_remove_1,axis=1)
-	print(manhattan_distances_removed.shape)
+# 	## with 2 mismatch
 
-	## with 2 mismatch
+# 	for I in range(len(kmer_rank_index)):
 
-	for I in range(len(kmer_rank_index)):
+# 		index = kmer_rank_index[I]
 
-		index = kmer_rank_index[I]
+# 		kmer_ = ALL_K_mers[index]
+# 		if kmer_ in  ALL_K_mers_tmp:
 
-		kmer_ = ALL_K_mers[index]
-		if kmer_ in  ALL_K_mers_tmp:
-
-			#kmers with 1 mismatch to I only
-			index1 = np.where(manhattan_distances[index,:] == 4 )[0]
-			index1 = [item for item in index1 if item not in index_to_be_remove_1]
-			# initiate the cluster with a reference
-			#key_name = "Kmer_cluster_"+str(I)
-			#K_mer_clusters[key_name] = [kmer_]
-			for J in index1:
-				#print(J,sum(manhattan_distances_removed[J,:] == 4))
-				if sum(manhattan_distances_removed[J,:] == 4) == 1:
-					print(J,kmer_,ALL_K_mers[J])
-					K_mer_clusters[kmer_].append(ALL_K_mers[J])
-					ALL_K_mers_tmp.remove(ALL_K_mers[J])
+# 			#kmers with 1 mismatch to I only
+# 			index1 = np.where(manhattan_distances[index,:] == 4 )[0]
+# 			index1 = [item for item in index1 if item not in index_to_be_remove_1]
+# 			# initiate the cluster with a reference
+# 			#key_name = "Kmer_cluster_"+str(I)
+# 			#K_mer_clusters[key_name] = [kmer_]
+# 			for J in index1:
+# 				#print(J,sum(manhattan_distances_removed[J,:] == 4))
+# 				if sum(manhattan_distances_removed[J,:] == 4) == 1:
+# 					print(J,kmer_,ALL_K_mers[J])
+# 					K_mer_clusters[kmer_].append(ALL_K_mers[J])
+# 					ALL_K_mers_tmp.remove(ALL_K_mers[J])
 	
-	print(len(K_mer_clusters))
+# 	print(len(K_mer_clusters))
 
-	# Get the first 5 key-value pairs
-	first_five = list(K_mer_clusters.items())[:5]
+# 	# Get the first 5 key-value pairs
+# 	first_five = list(K_mer_clusters.items())[:5]
 
-	# Print them
-	for key, value in first_five:
-		print(key, value)
+# 	# Print them
+# 	for key, value in first_five:
+# 		print(key, value)
 
 
 
@@ -268,25 +254,110 @@ def kmer_clustering(ALL_K_mers):
 	# print(sum(d==max(d)))
 
 
-def generate_DM(sequences,ALL_K_mers,k,n):
+def generate_DM(sequences,sorted_kmers,k,n):
+
+	start_time = time.time()
 
 	r = len(sequences)
-	c = len(ALL_K_mers)
+	c = len(sorted_kmers)
 
 	DM_matrix = np.zeros((r,c),dtype=int)
+
+	# Create a lookup dictionary for kmer positions
+	kmer_to_index = {kmer: idx for idx, kmer in enumerate(sorted_kmers)}
+	#print(kmer_to_index)
+
 	sequence_names = list(sequences.keys())
 
-	for i in range(r):
-		sequence = sequences[sequence_names[i]]
+	print(f"Processing {r} sequences for {c} kmers...")
 
-		for j in range(c):
-			DM_matrix[i,j] = sequence.count(ALL_K_mers[j])
+	# Process each sequence
+	for i, seq_name in enumerate(sequence_names):
+		if i > 0 and i % 100 == 0:
+			print(f"Processed {i}/{r} sequences...")
+            
+		sequence = sequences[seq_name]
 
-	presence_matrix= np.where(DM_matrix != 0, 1, 0)
+		# Count all kmers in one pass through the sequence
+		kmer_counts = defaultdict(int)
 
-	print("Finished counting unique kmer dosage for all sequences.")
+		# Use sliding window to count all kmers in the sequence at once
 
-	return(sequence_names,DM_matrix,presence_matrix)
+		start = 0
+
+		end = start + k
+
+		while( start < len(sequence) - k + 1):
+			current_kmer = sequence[start:end]
+			rev_comp = str(Seq(current_kmer).reverse_complement())
+			canonical_kmer = min(current_kmer, rev_comp)
+			if canonical_kmer in kmer_to_index:  
+				kmer_counts[canonical_kmer] += 1
+			else:
+				sys.exit("ERROR: FOUND A KMER that does not exist in the sequence")
+
+			start = start + 1 + n
+			end = start + k
+
+		# Fill the matrix with counts
+		for kmer, count in kmer_counts.items():
+			DM_matrix[i, kmer_to_index[kmer]] = count
+
+	elapsed_time = time.time() - start_time
+	
+	print(f"Finished counting unique kmer dosage for all sequences in {elapsed_time:.2f} seconds.")
+
+	return(sequence_names,DM_matrix)
+
+
+def generation_cluster_DM(dosage,output):
+	file = output + "_kmer_clusters.clstr"
+	cluster = {}
+
+	with open(file,"r") as FILE:
+		for line in FILE:
+
+			line = line.strip("\n")
+
+			## search for > for the header
+
+			if line.startswith(">"):
+				name = line[1:]
+				name = name.replace(" ", "_")
+
+				if name not in cluster:
+					cluster[name] = []
+				else:
+					sys.exit("ERROR: There are duplicated cluster names. Please double check! ")
+
+			else:
+				if name is None:
+					sys.exit("ERROR: The cd-hit cluster output format is incorrect.")
+
+				match = re.search(r"kmer_(\d+)",line)
+				if match:
+					cluster[name].append(int(match.group(1)))
+				else:
+					sys.exit("ERROR: incorrect regex.")
+
+	r,c = dosage.shape
+	cluster_count = len(cluster)
+	cluster_names = list(cluster.keys())
+
+	# Create a binary cluster mapping matrix
+	cluster_map = np.zeros((c, cluster_count), dtype=int)
+	print("DONE")
+
+	for idx, key in enumerate(cluster_names):
+		print(idx,key)
+		cluster_indices = np.array(cluster[key])
+		cluster_map[cluster_indices, idx] = 1  # Mark k-mers in each cluster
+
+	print(dosage.shape)
+	print(cluster_map.shape)
+	cluster_dosage = dosage @ cluster_map
+	print(cluster_dosage.shape)
+	return(cluster_dosage,cluster_names)
 
 def read_input_files(geno,pheno,covar):
 
