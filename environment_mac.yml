@@ -1,4 +1,4 @@
-name: krispr_test
+name: krispr
 channels:
   - bioconda
   - defaults
