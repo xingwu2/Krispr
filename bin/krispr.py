@@ -31,9 +31,11 @@ def main():
 		print("Finished counting unique k-mers. Identified %d unique kmers in total" %(len(kmer_counts)))
 
 		sorted_kmers = sorted(kmer_counts.keys(), key=lambda km: (-kmer_counts[km], km))
+		
 		OUTPUT_UNIQUE_KMERS = open(args.output+"_unique_kmers.fa","w")
 		for i, kmer in enumerate(sorted_kmers):
 			print("%s\n%s" %(">kmer_"+str(i),sorted_kmers[i]),file = OUTPUT_UNIQUE_KMERS)
+		OUTPUT_UNIQUE_KMERS.close()
 
 		## STEP 3: perform sequence based clustering on unique kmers (default = True)
 

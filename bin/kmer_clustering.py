@@ -69,37 +69,37 @@ def reorder_kmers(kmer_matrix):
 	order = np.argsort(degree)[::-1]
 	return(order)
 
-def write_kmer_output(ordered_ALL_K_mers):
-	with open("tmp_ordered_unique_kmer.fa","w") as OUTPUT:
-		for i in range(len(ordered_ALL_K_mers)):
-			print(">kmer_%i\n%s" %(i,ordered_ALL_K_mers[i]),file=OUTPUT)
+# def write_kmer_output(ordered_ALL_K_mers):
+# 	with open("tmp_ordered_unique_kmer.fa","w") as OUTPUT:
+# 		for i in range(len(ordered_ALL_K_mers)):
+# 			print(">kmer_%i\n%s" %(i,ordered_ALL_K_mers[i]),file=OUTPUT)
 
-def kmer_clustering(ALL_K_mers):
+# def kmer_clustering(ALL_K_mers):
 
-	k = len(ALL_K_mers[0])
-	nrow = len(ALL_K_mers)
-	ncol = k*4
-	kmer_matrix = np.empty((nrow,ncol))
+# 	k = len(ALL_K_mers[0])
+# 	nrow = len(ALL_K_mers)
+# 	ncol = k*4
+# 	kmer_matrix = np.empty((nrow,ncol))
 
-	one_mismatch = []
+# 	one_mismatch = []
 
-	for I in range(len(ALL_K_mers)):
-		kmer = ALL_K_mers[I]
-		kmer_numeric = kmer_one_hot_encoding(kmer)
-		kmer_matrix[I,:] = kmer_numeric
+# 	for I in range(len(ALL_K_mers)):
+# 		kmer = ALL_K_mers[I]
+# 		kmer_numeric = kmer_one_hot_encoding(kmer)
+# 		kmer_matrix[I,:] = kmer_numeric
 
-	order = reorder_kmers(kmer_matrix)
+# 	order = reorder_kmers(kmer_matrix)
 
-	ordered_ALL_K_mers = [ALL_K_mers[i] for i in order]
+# 	ordered_ALL_K_mers = [ALL_K_mers[i] for i in order]
 
-	write_kmer_output(ordered_ALL_K_mers)
+# 	write_kmer_output(ordered_ALL_K_mers)
 
-	identity_threshold = np.round(1 - float(1/k),3)
-	print(identity_threshold)
-	cd_hit_command = "cd-hit-est -i tmp_ordered_unique_kmer.fa -o tmp_ordered_unique_kmer -l 5 -c " + str(identity_threshold) + " -M 0 -n 5 -g 1 -gap -20 -gap-ext -10"
-	print(cd_hit_command)
-	format_output_command = "cat tmp_ordered_unique_kmer.clstr | sed -E 's/.*>(kmer_.*)\.\.\..*/\\1/'"
-	print(format_output_command)
+# 	identity_threshold = np.round(1 - float(1/k),3)
+# 	print(identity_threshold)
+# 	cd_hit_command = "cd-hit-est -i tmp_ordered_unique_kmer.fa -o tmp_ordered_unique_kmer -l 5 -c " + str(identity_threshold) + " -M 0 -n 5 -g 1 -gap -20 -gap-ext -10"
+# 	print(cd_hit_command)
+# 	format_output_command = "cat tmp_ordered_unique_kmer.clstr | sed -E 's/.*>(kmer_.*)\.\.\..*/\\1/'"
+# 	print(format_output_command)
 	# ## Use manhattan distance to find reference kmers
 
 	# manhattan_distances = np.array(squareform(pdist(kmer_matrix, metric='cityblock')),dtype=int)

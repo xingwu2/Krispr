@@ -12,6 +12,9 @@ from sklearn.neighbors import kneighbors_graph
 from scipy.spatial.distance import pdist, squareform
 import time
 from collections import defaultdict
+from scipy.sparse import csr_matrix
+from scipy.sparse import csc_matrix
+
 
 
 
@@ -311,6 +314,9 @@ def generate_DM(sequences,sorted_kmers,k,n):
 
 
 def generation_cluster_DM(dosage,output):
+
+	start_time = time.time()
+
 	file = output + "_kmer_clusters.clstr"
 	cluster = {}
 
@@ -346,18 +352,26 @@ def generation_cluster_DM(dosage,output):
 
 	# Create a binary cluster mapping matrix
 	cluster_map = np.zeros((c, cluster_count), dtype=int)
-	print("DONE")
 
 	for idx, key in enumerate(cluster_names):
-		print(idx,key)
 		cluster_indices = np.array(cluster[key])
 		cluster_map[cluster_indices, idx] = 1  # Mark k-mers in each cluster
 
-	print(dosage.shape)
-	print(cluster_map.shape)
-	cluster_dosage = dosage @ cluster_map
-	print(cluster_dosage.shape)
-	return(cluster_dosage,cluster_names)
+	# cluster_dosage = dosage @ cluster_map
+
+	# elapsed_time = time.time() - start_time
+	# print(f"Finished calculating kmer cluster dosage matrix in {elapsed_time:.2f} seconds.")
+
+	dosage_sparse = csc_matrix(dosage,dtype=np.int32)
+	cluster_map_sparse = csr_matrix(cluster_map,dtype=np.int32)
+
+	cluster_dosage_1 = dosage_sparse.dot(cluster_map_sparse)
+	cluster_dosage_1_np = np.matrix(cluster_dosage_1.toarray())
+	elapsed_time = time.time() - start_time
+
+	print(f"Finished calculating kmer cluster dosage matrix in {elapsed_time:.2f} seconds.")
+
+	return(cluster_dosage_1_np,cluster_names)
 
 def read_input_files(geno,pheno,covar):
 
