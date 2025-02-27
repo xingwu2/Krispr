@@ -12,8 +12,7 @@ from sklearn.neighbors import kneighbors_graph
 from scipy.spatial.distance import pdist, squareform
 import time
 from collections import defaultdict
-from scipy.sparse import csr_matrix
-from scipy.sparse import csc_matrix
+from scipy.sparse import csr_matrix, csc_matrix, lil_matrix
 
 
 
@@ -351,7 +350,8 @@ def generation_cluster_DM(dosage,output):
 	cluster_names = list(cluster.keys())
 
 	# Create a binary cluster mapping matrix
-	cluster_map = np.zeros((c, cluster_count), dtype=int)
+	#cluster_map = np.zeros((c, cluster_count), dtype=int)
+	cluster_map = lil_matrix((c, cluster_count), dtype=np.int8)
 
 	for idx, key in enumerate(cluster_names):
 		cluster_indices = np.array(cluster[key])
@@ -363,7 +363,9 @@ def generation_cluster_DM(dosage,output):
 	# print(f"Finished calculating kmer cluster dosage matrix in {elapsed_time:.2f} seconds.")
 
 	dosage_sparse = csc_matrix(dosage,dtype=np.int32)
-	cluster_map_sparse = csr_matrix(cluster_map,dtype=np.int32)
+	#cluster_map_sparse = csr_matrix(cluster_map,dtype=np.int32)
+	cluster_map_sparse = cluster_map.tocsr()
+
 
 	cluster_dosage_1 = dosage_sparse.dot(cluster_map_sparse)
 	cluster_dosage_1_np = np.matrix(cluster_dosage_1.toarray())
