@@ -89,13 +89,13 @@ def count_kmers_from_seq(sequences,k,n):
 		while( start < l - k + 1):
 
 			kmer = sequence[start:end]
-			rev_comp = str(Seq(kmer).reverse_complement())
-			canonical_kmer = min(kmer, rev_comp)
+			#rev_comp = str(Seq(kmer).reverse_complement())
+			#canonical_kmer = min(kmer, rev_comp)
 			### identify unique kmers 
-			if canonical_kmer not in kmer_counts:
-				kmer_counts[canonical_kmer] = 1
+			if kmer not in kmer_counts:
+				kmer_counts[kmer] = 1
 			else:
-				kmer_counts[canonical_kmer] += 1
+				kmer_counts[kmer] += 1
 
 			start = start + 1 + n
 			end = start + k
@@ -291,11 +291,12 @@ def generate_DM(sequences,sorted_kmers,k,n):
 
 		while( start < len(sequence) - k + 1):
 			current_kmer = sequence[start:end]
-			rev_comp = str(Seq(current_kmer).reverse_complement())
-			canonical_kmer = min(current_kmer, rev_comp)
-			if canonical_kmer in kmer_to_index:  
-				kmer_counts[canonical_kmer] += 1
+			#rev_comp = str(Seq(current_kmer).reverse_complement())
+			#canonical_kmer = min(current_kmer, rev_comp)
+			if current_kmer in kmer_to_index:  
+				kmer_counts[current_kmer] += 1
 			else:
+				#print(current_kmer)
 				sys.exit("ERROR: FOUND A KMER that does not exist in the sequence")
 
 			start = start + 1 + n
