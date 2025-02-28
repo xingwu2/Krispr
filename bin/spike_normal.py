@@ -202,7 +202,7 @@ def sampling(verbose,y,C,HapDM,sig0_initiate,iters,prefix,num,trace_container,ga
 		total_heritability = genetic_var / pheno_var
 
 		after = time.time()
-		if it > 500 and total_heritability > 1:
+		if (it > 500 and total_heritability > 1) or sum(gamma)<0:
 			continue
 
 		else:
