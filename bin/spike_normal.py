@@ -8,7 +8,7 @@ import geweke
 import os
 import gc
 import sys
-
+from scipy import sparse
 
 def sample_gamma(beta,sigma_0,sigma_1,pie):
 	p = np.empty(len(beta))
@@ -77,6 +77,50 @@ def sample_beta(y,C_alpha,H_beta,H,beta,gamma,sigma_0,sigma_1,sigma_e,H_norm_2):
 
 	return(beta,H_beta)
 
+def sample_beta_sparse(y,C_alpha,H_beta,H,beta,gamma,sigma_0,sigma_1,sigma_e,H_norm_2):
+
+	sigma_e_neg2 = sigma_e**-2
+	sigma_0_neg2 = sigma_0**-2
+	sigma_1_neg2 = sigma_1**-2
+
+	H_sparse = sparse.csc_matrix(H)
+
+	residual = y - C_alpha - H_beta
+
+	for i in range(len(beta)):
+
+		# Get column i data and indices
+		col_start = H_sparse.indptr[i]
+		col_end = H_sparse.indptr[i+1]
+		row_indices = H_sparse.indices[col_start:col_end]
+		data_values = H_sparse.data[col_start:col_end]
+
+		for j, row_idx in enumerate(row_indices):
+			residual[row_idx] += beta[i] * data_values[j]
+
+		# Calculate dot product between residual and H[:,i]
+		dot_product = 0
+		for j, row_idx in enumerate(row_indices):
+			dot_product += residual[row_idx] * data_values[j]
+		
+		new_variance = 1 / (H_norm_2[i] * sigma_e_neg2 + (1 - gamma[i]) * sigma_0_neg2 + gamma[i] * sigma_1_neg2)
+		new_mean = new_variance * dot_product * sigma_e_neg2
+		np.random.seed(i)
+		new_beta = np.random.normal(new_mean, math.sqrt(new_variance))
+		#Update residual by subtracting new contribution
+		for j, row_idx in enumerate(row_indices):
+			residual[row_idx] -= new_beta * data_values[j]
+
+		# Update H_beta 
+		for j, row_idx in enumerate(row_indices):
+			H_beta[row_idx] = H_beta[row_idx] - beta[i] * data_values[j] + new_beta * data_values[j]
+		
+		beta[i] = new_beta
+
+	return(beta,H_beta)
+
+
+
 def sampling(verbose,y,C,HapDM,sig0_initiate,iters,prefix,num,trace_container,gamma_container,beta_container,alpha_container):
 
 	## set random seed for the process
@@ -86,8 +130,6 @@ def sampling(verbose,y,C,HapDM,sig0_initiate,iters,prefix,num,trace_container,ga
 	H = np.array(HapDM)
 
 	H_r,H_c = H.shape
-
-
 	C_c = C.shape[1]
 
 

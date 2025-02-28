@@ -41,8 +41,7 @@ def main():
 
 		similarity = 1-(1.0/float(args.k)) - 0.01
 
-		if args.cluster:
-			kmer_clusters = cluster.cdhit_cluster(args.output+"_unique_kmers.fa",args.output+"_kmer_clusters",similarity,args.wordsize)
+		kmer_clusters = cluster.cdhit_cluster(args.output+"_unique_kmers.fa",args.output+"_kmer_clusters",similarity,args.wordsize)
 
 
 		## STEP 4: generate the kmer design matrix for each sequence, the number indicates the dosage of kmer and kmer_clusters
@@ -51,20 +50,23 @@ def main():
 
 		cluster_dosage,cluster_names = uf.generation_cluster_DM(dosage,args.output)
 
-		dosage_pd = pd.DataFrame(dosage)
-		dosage_pd.index = sequence_names
-		dosage_pd.to_csv(args.output+"_DosageMatrix.csv",header=sorted_kmers)
-
 		cluster_dosage_pd = pd.DataFrame(cluster_dosage)
-		cluster_dosage_pd.index = sequence_names
-		cluster_dosage_pd.to_csv(args.output+"_Cluster_DosageMatrix.csv",header=cluster_names)
+		#cluster_dosage_pd.index = sequence_names
+		cluster_dosage_pd.to_csv(args.output+"_Cluster_DosageMatrix.csv",header=cluster_names,index=False)
+		if args.unique == True:
+			dosage_pd = pd.DataFrame(dosage)
+			#dosage_pd.index = sequence_names
+			dosage_pd.to_csv(args.output+"_DosageMatrix.csv",header=sorted_kmers,index=False)
 
 
 	elif args.task == "mapping":
 
 		## The following script will perform the mapping algorithm to identify the causal 
 
-		y, X, kmer_names,C = uf.read_input_files(args.geno,args.pheno,args.covar)
+		if not args.cutoff:
+			sys.exit("ERROR: Please specify the cutoff for kmer/kmer clusters using -l")
+
+		y, X, kmer_names,C = uf.read_input_files(args.geno,args.cutoff,args.pheno,args.covar)
 
 		trace_container = mp.Manager().dict()
 		gamma_container = mp.Manager().dict()
