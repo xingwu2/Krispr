@@ -25,6 +25,8 @@ def parse_arguments():
 	parser.add_argument('-f',type = str, action= 'store',dest='sequence',help='the multi-fasta file')
 	parser.add_argument('-k',type = int, action= 'store',dest='k',default=7,help = "size of the kmer")
 	parser.add_argument('-g',type = int, action = 'store', dest = 'gap',default=0,help = "the number of nucleotide gap between 2 kmers")
+	parser.add_argument('-l',type = float, action = 'store', dest = "cutoff",default = 0.01,help = "a separate DM matrix with the minimum occurrence frequency for a kmer/kmer cluster to be included in the  mapping (default:0.01)")
+
 
 	parser.add_argument('-t',type = str, action = 'store', dest = 'task',help = "count | mapping")
 	parser.add_argument('-u',action = 'store_true', dest = 'unique',default = False, help = "output the unique kmer dosage matrix (default: false)")
@@ -36,7 +38,6 @@ def parse_arguments():
 	parser.add_argument('-x',type = str, action = 'store', dest = 'geno',help = "the input matrix (X) for the mapping step")
 	parser.add_argument('-c',type = str, action = 'store', dest = 'covar',help = "the covariates (C) for the mapping step")
 	parser.add_argument('-y',type = str, action = 'store', dest = 'pheno',help = "the response variable for the mapping step")
-	parser.add_argument('-l',type = int, action = 'store', dest = "cutoff",help = "the minimum occurance for a kmer/kmer cluster to be included in the  mapping (default:30)")
 
 	parser.add_argument('-m',type = int, action = 'store', dest = 'model',default = 1, help = "the statistical model for kmer effect estimation. Krispr offers two spike priors 1 (default): small effect around 0; 2: point mass at 0")
 	parser.add_argument('-s0',type = float, action = 'store', dest = 's0',default = 0.01, help = "the proportion of phenotypic variation explained by background kmers")
@@ -378,18 +379,12 @@ def generation_cluster_DM(dosage,output):
 
 	return(cluster_dosage_1_np,cluster_names)
 
-def read_input_files(geno,cutoff, pheno,covar):
+def read_input_files(geno, pheno,covar):
 
 	X = pd.read_csv(str(geno),sep=",")
 	n,p = X.shape
 
 	kmer_names = np.array(X.columns.values.tolist())
-
-	col_sum = X.sum(axis=0)
-
-	col_indices = np.where(col_sum > cutoff)[0]
-	X_passed = X.iloc[:,col_indices]
-	kmer_names_passed = kmer_names[col_indices]
 
 	y = []
 	with open(str(pheno),"r") as f:
@@ -405,7 +400,7 @@ def read_input_files(geno,cutoff, pheno,covar):
 	else:
 		C =  np.array(pd.read_csv(str(covar),sep="\t",header=None)) 
 
-	return(y,X_passed,kmer_names_passed,C)
+	return(y,X,kmer_names,C)
 
 def fdr_calculation(kmer_pip_median):
 

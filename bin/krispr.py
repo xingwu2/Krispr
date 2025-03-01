@@ -50,9 +50,23 @@ def main():
 
 		cluster_dosage,cluster_names = uf.generation_cluster_DM(dosage,args.output)
 
+
+		## identify the kmer clusters with mimimum frequency of occurrence (default 0.01)
+		cluster_indicator = cluster_dosage > 0
+		occurance_frequency = np.sum(np.array(cluster_indicator),axis=0) / cluster_dosage.shape[0]
+		col_indices = np.where(occurance_frequency > args.cutoff)[0]
+		cluster_dosage_passed = cluster_dosage[:,col_indices]
+		cluster_names_passed = [cluster_names[i] for i in col_indices]
+
+		cluster_dosage_passed_pd = pd.DataFrame(cluster_dosage_passed)
+		cluster_dosage_passed_pd.to_csv(args.output+"_Cluster_DosageMatrix_occurrence_"+str(args.cutoff)+".csv",header=cluster_names_passed,index=False)
+
+
+
 		cluster_dosage_pd = pd.DataFrame(cluster_dosage)
 		#cluster_dosage_pd.index = sequence_names
 		cluster_dosage_pd.to_csv(args.output+"_Cluster_DosageMatrix.csv",header=cluster_names,index=False)
+		
 		if args.unique == True:
 			dosage_pd = pd.DataFrame(dosage)
 			#dosage_pd.index = sequence_names
@@ -63,10 +77,7 @@ def main():
 
 		## The following script will perform the mapping algorithm to identify the causal 
 
-		if not args.cutoff:
-			sys.exit("ERROR: Please specify the cutoff for kmer/kmer clusters using -l")
-
-		y, X, kmer_names,C = uf.read_input_files(args.geno,args.cutoff,args.pheno,args.covar)
+		y, X, kmer_names,C = uf.read_input_files(args.geno,args.pheno,args.covar)
 
 		trace_container = mp.Manager().dict()
 		gamma_container = mp.Manager().dict()
