@@ -8,7 +8,7 @@ import geweke
 import os
 import gc
 import sys
-from scipy import sparse
+from scipy.sparse import csc_matrix
 
 def sample_gamma(beta,sigma_0,sigma_1,pie):
 	p = np.empty(len(beta))
@@ -67,58 +67,77 @@ def sample_beta(y,C_alpha,H_beta,H,beta,gamma,sigma_0,sigma_1,sigma_e,H_norm_2):
 	sigma_0_neg2 = sigma_0**-2
 	sigma_1_neg2 = sigma_1**-2
 
-	for i in range(len(beta)):
-		H_beta_negi = H_beta - H[:,i] * beta[i]
-		residual = y - C_alpha -  H_beta + H[:,i] * beta[i]
-		new_variance = 1/(H_norm_2[i]*sigma_e_neg2+(1-gamma[i])*sigma_0_neg2+gamma[i]*sigma_1_neg2)
-		new_mean = new_variance*np.dot(residual,H[:,i])*sigma_e_neg2
-		beta[i] = np.random.normal(new_mean,math.sqrt(new_variance))
-		H_beta = H_beta_negi + H[:,i] * beta[i]
+	#H_sparse = csc_matrix(H)
 
-	return(beta,H_beta)
+	#H_beta_sparse = H_beta
 
-def sample_beta_sparse(y,C_alpha,H_beta,H,beta,gamma,sigma_0,sigma_1,sigma_e,H_norm_2):
-
-	sigma_e_neg2 = sigma_e**-2
-	sigma_0_neg2 = sigma_0**-2
-	sigma_1_neg2 = sigma_1**-2
-
-	H_sparse = sparse.csc_matrix(H)
-
-	residual = y - C_alpha - H_beta
 
 	for i in range(len(beta)):
 
-		# Get column i data and indices
-		col_start = H_sparse.indptr[i]
-		col_end = H_sparse.indptr[i+1]
-		row_indices = H_sparse.indices[col_start:col_end]
-		data_values = H_sparse.data[col_start:col_end]
+		# col = H_sparse.getcol(i)
+		# print(col)
+		# indices = col.indices
+		# data = col.data
 
-		for j, row_idx in enumerate(row_indices):
-			residual[row_idx] += beta[i] * data_values[j]
+		# H_beta_sparse[indices] -= data*beta[i]
 
-		# Calculate dot product between residual and H[:,i]
-		dot_product = 0
-		for j, row_idx in enumerate(row_indices):
-			dot_product += residual[row_idx] * data_values[j]
-		
-		new_variance = 1 / (H_norm_2[i] * sigma_e_neg2 + (1 - gamma[i]) * sigma_0_neg2 + gamma[i] * sigma_1_neg2)
-		new_mean = new_variance * dot_product * sigma_e_neg2
+		H_beta_negi = H_beta - H[:,i] * beta[i] 		### original
+
+		# residual_sparse = y - C_alpha - H_beta_sparse
+
+		residual = y - C_alpha -  H_beta + H[:,i] * beta[i]		### original
+
+		new_variance = 1/(H_norm_2[i]*sigma_e_neg2+(1-gamma[i])*sigma_0_neg2+gamma[i]*sigma_1_neg2)		### original
+
+		# new_mean_sparse = new_variance*sigma_e_neg2*np.dot(residual_sparse[indices], data)
+
+		new_mean = new_variance*np.dot(residual,H[:,i])*sigma_e_neg2		### original
+
 		np.random.seed(i)
-		new_beta = np.random.normal(new_mean, math.sqrt(new_variance))
-		#Update residual by subtracting new contribution
-		for j, row_idx in enumerate(row_indices):
-			residual[row_idx] -= new_beta * data_values[j]
+		beta[i] = np.random.normal(new_mean,math.sqrt(new_variance))		### original
 
-		# Update H_beta 
-		for j, row_idx in enumerate(row_indices):
-			H_beta[row_idx] = H_beta[row_idx] - beta[i] * data_values[j] + new_beta * data_values[j]
-		
-		beta[i] = new_beta
+		H_beta = H_beta_negi + H[:,i] * beta[i]		### original
+
+		# H_beta_sparse[indices] += data * beta[i]
 
 	return(beta,H_beta)
 
+def sample_beta_sparse(y, C_alpha, H_beta, H, beta, gamma, sigma_0, sigma_1, sigma_e, H_norm_2):
+
+	# Precompute inverse squares for efficiency.
+	sigma_e_neg2 = sigma_e ** -2
+	sigma_0_neg2 = sigma_0 ** -2
+	sigma_1_neg2 = sigma_1 ** -2
+
+    # Ensure H is in CSC format for fast column slicing.
+	H_sparse = csc_matrix(H)
+
+    # Loop over each column (i.e. each beta element)
+	for i in range(len(beta)):
+		col = H_sparse.getcol(i)
+		indices = col.indices
+		data = col.data
+
+        # Remove the old contribution of column i from H_beta.
+        # This only touches the nonzero indices in column i.
+		H_beta[indices] -= data * beta[i]
+
+		residual = y - C_alpha - H_beta
+
+        # Compute new variance and new mean using the nonzero entries only.
+		new_variance = 1 / (H_norm_2[i] * sigma_e_neg2 + (1 - gamma[i]) * sigma_0_neg2 + gamma[i] * sigma_1_neg2)
+        # Dot product over nonzero entries: sum(residual[indices] * data)
+		new_mean = new_variance * sigma_e_neg2 * np.dot(residual[indices], data)
+
+		np.random.seed(i)
+
+        # Sample new beta value from a normal distribution.
+		beta[i] = np.random.normal(new_mean, math.sqrt(new_variance))
+
+        # Add the new contribution of column i back to H_beta.
+		H_beta[indices] += data * beta[i]
+
+	return (beta, H_beta)
 
 
 def sampling(verbose,y,C,HapDM,sig0_initiate,iters,prefix,num,trace_container,gamma_container,beta_container,alpha_container):
@@ -194,7 +213,14 @@ def sampling(verbose,y,C,HapDM,sig0_initiate,iters,prefix,num,trace_container,ga
 		sigma_e = sample_sigma_e(y,H_beta,C_alpha,a_e,b_e)
 		gamma = sample_gamma(beta,sigma_0,sigma_1,pie)
 		alpha,C_alpha = sample_alpha(y,H_beta,C_alpha,C,alpha,sigma_e,C_norm_2)
+		start = time.time()
 		beta,H_beta = sample_beta(y,C_alpha,H_beta,H,beta,gamma,sigma_0,sigma_1,sigma_e,H_norm_2)
+		end = time.time()
+		print("old",str(end - start),beta[55:60])
+		start = time.time()
+		beta,H_beta = sample_beta_sparse(y,C_alpha,H_beta,H,beta,gamma,sigma_0,sigma_1,sigma_e,H_norm_2)
+		end = time.time()
+		print("new",str(end - start),beta[55:60])
 		genetic_var = np.var(H_beta)
 		pheno_var = np.var(y - C_alpha)
 		large_beta = np.absolute(beta) > 0.3
