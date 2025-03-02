@@ -16,7 +16,7 @@ def sample_gamma(beta,sigma_0,sigma_1,pie):
 	d1 = pie*sp.stats.norm.pdf(beta,loc=0,scale=sigma_1)
 	d0 = (1-pie)*sp.stats.norm.pdf(beta,loc=0,scale=sigma_0)
 	p = d1/(d0+d1)
-	gamma = np.random.binomial(1,p).astype(np.int8)
+	gamma = np.random.binomial(1,p).astype(np.int64)
 	return(gamma)
 
 def sample_pie(gamma,pie_a,pie_b):
@@ -171,11 +171,6 @@ def sampling(verbose,y,C,HapDM,sig0_initiate,iters,prefix,num,trace_container,ga
 
 	H_r,H_c = H.shape
 	C_c = C.shape[1]
-
-	print(H[:5,:5])
-
-	print(C[:5,:5])
-
 
 	##specify hyper parameters
 	pie_a = 1
