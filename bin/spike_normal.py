@@ -9,6 +9,7 @@ import os
 import gc
 import sys
 from scipy.sparse import csc_matrix
+from numba import njit
 
 def sample_gamma(beta,sigma_0,sigma_1,pie):
 	p = np.empty(len(beta))
@@ -67,29 +68,15 @@ def sample_beta(y,C_alpha,H_beta,H,beta,gamma,sigma_0,sigma_1,sigma_e,H_norm_2):
 	sigma_0_neg2 = sigma_0**-2
 	sigma_1_neg2 = sigma_1**-2
 
-	#H_sparse = csc_matrix(H)
-
-	#H_beta_sparse = H_beta
-
-
 	for i in range(len(beta)):
-
-		# col = H_sparse.getcol(i)
-		# print(col)
-		# indices = col.indices
-		# data = col.data
-
-		# H_beta_sparse[indices] -= data*beta[i]
 
 		H_beta_negi = H_beta - H[:,i] * beta[i] 		### original
 
-		# residual_sparse = y - C_alpha - H_beta_sparse
 
 		residual = y - C_alpha -  H_beta + H[:,i] * beta[i]		### original
 
 		new_variance = 1/(H_norm_2[i]*sigma_e_neg2+(1-gamma[i])*sigma_0_neg2+gamma[i]*sigma_1_neg2)		### original
 
-		# new_mean_sparse = new_variance*sigma_e_neg2*np.dot(residual_sparse[indices], data)
 
 		new_mean = new_variance*np.dot(residual,H[:,i])*sigma_e_neg2		### original
 
@@ -98,9 +85,46 @@ def sample_beta(y,C_alpha,H_beta,H,beta,gamma,sigma_0,sigma_1,sigma_e,H_norm_2):
 
 		H_beta = H_beta_negi + H[:,i] * beta[i]		### original
 
-		# H_beta_sparse[indices] += data * beta[i]
 
 	return(beta,H_beta)
+
+
+
+@njit
+def sample_beta_numba(y, C_alpha, H_beta, H, beta, gamma, sigma_0, sigma_1, sigma_e, H_norm_2):
+	sigma_e_neg2 = sigma_e ** -2
+	sigma_0_neg2 = sigma_0 ** -2
+	sigma_1_neg2 = sigma_1 ** -2
+	ncols = beta.shape[0]
+	nrows = y.shape[0]
+    
+	for i in range(ncols):
+
+		for r in range(nrows):
+			H_beta[r] -= H[r, i] * beta[i]
+
+        # Compute the dot product over the column using the updated H_beta.
+		dot_val = 0.0
+		for r in range(nrows):
+            # residual = y[r] - C_alpha[r] - H_beta[r]
+			res_val = y[r] - C_alpha[r] - H_beta[r] 
+			dot_val += res_val * H[r, i]
+        
+		new_variance = 1.0 / (H_norm_2[i]*sigma_e_neg2 + (1 - gamma[i])*sigma_0_neg2 + gamma[i]*sigma_1_neg2)
+		new_mean = new_variance * sigma_e_neg2 * dot_val
+        
+		np.random.seed(i)
+
+        # Sample new beta using standard normal (Numba supports np.random.randn)
+		beta[i] = new_mean + math.sqrt(new_variance) * np.random.randn()
+       
+        # Update H_beta with the new contribution.
+		for r in range(nrows):
+			H_beta[r] += H[r, i] * beta[i]
+    
+	return (beta, H_beta)
+
+
 
 def sample_beta_sparse(y, C_alpha, H_beta, H, beta, gamma, sigma_0, sigma_1, sigma_e, H_norm_2):
 
@@ -218,7 +242,7 @@ def sampling(verbose,y,C,HapDM,sig0_initiate,iters,prefix,num,trace_container,ga
 		end = time.time()
 		print("old",str(end - start),beta[55:60])
 		start = time.time()
-		beta,H_beta = sample_beta_sparse(y,C_alpha,H_beta,H,beta,gamma,sigma_0,sigma_1,sigma_e,H_norm_2)
+		beta,H_beta = sample_beta_numba(y,C_alpha,H_beta,H,beta,gamma,sigma_0,sigma_1,sigma_e,H_norm_2)
 		end = time.time()
 		print("new",str(end - start),beta[55:60])
 		genetic_var = np.var(H_beta)
