@@ -77,7 +77,7 @@ def main():
 
 		## The following script will perform the mapping algorithm to identify the causal 
 
-		y, X, kmer_names,C = uf.read_input_files(args.geno,args.pheno,args.covar)
+		y, X, kmer_names,C, covariate_names = uf.read_input_files(args.geno,args.pheno,args.covar)
 
 		trace_container = mp.Manager().dict()
 		gamma_container = mp.Manager().dict()
@@ -142,22 +142,27 @@ def main():
 		print("%s\t%s\t%s" %("kmer_name","pip","fdr"),file = OUTPUT_KMER)
 		for i in range(len(sorted_kmer_names)):
 			print("%s\t%s\t%s" %(sorted_kmer_names[i],sorted_kmer_pip[i],kmer_fdr[i]),file = OUTPUT_KMER)
+		OUTPUT_KMER.close()
 
 		OUTPUT_ALPHA = open(args.output+"_alpha.txt","w")
-		print("%s\t%s" %("covariate_effect","covariate_effect_sd"),file = OUTPUT_ALPHA)
+		print("%s\t%s\t%s" %("covariate_name","covariate_effect","covariate_effect_sd"),file = OUTPUT_ALPHA)
 		for i in range(len(alpha_posterior_median)):
-			print("%f\t%f" %(alpha_posterior_median[i],alpha_posterior_sd_median[i]),file = OUTPUT_ALPHA)
+			print("%s\t%f\t%f" %(covariate_names[i],alpha_posterior_median[i],alpha_posterior_sd_median[i]),file = OUTPUT_ALPHA)
+		OUTPUT_ALPHA.close()
+
 
 		OUTPUT_BETA = open(args.output+"_beta.txt","w")
 		print("%s\t%s\t%s" %("kmer_name","kmer_effect","kmer_effect_sd"),file = OUTPUT_BETA)
 		for i in range(len(sorted_kmer_names)):
 			print("%s\t%f\t%f" %(sorted_kmer_names[i],sorted_beta_median[i],sorted_beta_sd_median[i]),file = OUTPUT_BETA)
+		OUTPUT_BETA.close()
 
 
 		trace_variables = ["Sigma_1","Sigma_e","Large_Effect_Kmer_Proportion","Variance_Explained","Num_Causal_Kmer"]
 		OUTPUT_TRACE = open(args.output+"_trace.txt","w")
 		for i in range(len(trace_posterior_median)):
 			print("%s\t%f\t%f" %(trace_variables[i],trace_posterior_median[i],trace_posterior_sd_median[i]),file = OUTPUT_TRACE)
+		OUTPUT_TRACE.close()
 
 	else:
 		sys.exit("ERROR: Please provide the name of the task: count or mapping. Details see the manual (-h).")

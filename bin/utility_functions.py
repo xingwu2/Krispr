@@ -397,10 +397,13 @@ def read_input_files(geno, pheno,covar):
 	if covar is None:
 		C = np.ones(n)
 		C = C.reshape(n, 1)
-	else:
-		C =  np.array(pd.read_csv(str(covar),sep="\t",header=None)) 
+		covariate_names = ["intercept"]
 
-	return(y,X,kmer_names,C)
+	else:
+		C =  pd.read_csv(str(covar),sep=",")
+		covariate_names =  np.array(C.columns.values.tolist())
+		C = np.array(C)
+	return(y,X,kmer_names,C,covariate_names)
 
 def fdr_calculation(kmer_pip_median):
 

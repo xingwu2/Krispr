@@ -70,7 +70,7 @@ def sample_beta(y,C_alpha,H_beta,H,beta,gamma,sigma_0,sigma_1,sigma_e,H_norm_2):
 
 	for i in range(len(beta)):
 
-		H_beta_negi = H_beta - H[:,i] * beta[i] 		### original
+		H_beta_negi = H_beta - H[:,i] * beta[i] 	### original
 
 
 		residual = y - C_alpha -  H_beta + H[:,i] * beta[i]		### original
@@ -80,7 +80,6 @@ def sample_beta(y,C_alpha,H_beta,H,beta,gamma,sigma_0,sigma_1,sigma_e,H_norm_2):
 
 		new_mean = new_variance*np.dot(residual,H[:,i])*sigma_e_neg2		### original
 
-		np.random.seed(i)
 		beta[i] = np.random.normal(new_mean,math.sqrt(new_variance))		### original
 
 		H_beta = H_beta_negi + H[:,i] * beta[i]		### original
@@ -113,8 +112,6 @@ def sample_beta_numba(y, C_alpha, H_beta, H, beta, gamma, sigma_0, sigma_1, sigm
 		new_variance = 1.0 / (H_norm_2[i]*sigma_e_neg2 + (1 - gamma[i])*sigma_0_neg2 + gamma[i]*sigma_1_neg2)
 		new_mean = new_variance * sigma_e_neg2 * dot_val
         
-		np.random.seed(i)
-
         # Sample new beta using standard normal (Numba supports np.random.randn)
 		beta[i] = new_mean + math.sqrt(new_variance) * np.random.randn()
        
@@ -174,6 +171,10 @@ def sampling(verbose,y,C,HapDM,sig0_initiate,iters,prefix,num,trace_container,ga
 
 	H_r,H_c = H.shape
 	C_c = C.shape[1]
+
+	print(H[:5,:5])
+
+	print(C[:5,:5])
 
 
 	##specify hyper parameters
@@ -238,8 +239,10 @@ def sampling(verbose,y,C,HapDM,sig0_initiate,iters,prefix,num,trace_container,ga
 		gamma = sample_gamma(beta,sigma_0,sigma_1,pie)
 		alpha,C_alpha = sample_alpha(y,H_beta,C_alpha,C,alpha,sigma_e,C_norm_2)
 		start = time.time()
-#		beta,H_beta = sample_beta(y,C_alpha,H_beta,H,beta,gamma,sigma_0,sigma_1,sigma_e,H_norm_2)
+		#beta,H_beta = sample_beta(y,C_alpha,H_beta,H,beta,gamma,sigma_0,sigma_1,sigma_e,H_norm_2)
+		#print("old",beta[5:10],H_beta[5:10])
 		beta,H_beta = sample_beta_numba(y,C_alpha,H_beta,H,beta,gamma,sigma_0,sigma_1,sigma_e,H_norm_2)
+		#print("new",beta[5:10],H_beta[5:10])
 		genetic_var = np.var(H_beta)
 		pheno_var = np.var(y - C_alpha)
 		large_beta = np.absolute(beta) > 0.3
@@ -247,7 +250,8 @@ def sampling(verbose,y,C,HapDM,sig0_initiate,iters,prefix,num,trace_container,ga
 		total_heritability = genetic_var / pheno_var
 
 		after = time.time()
-		if (it > 500 and total_heritability > 1) or sum(gamma)<0:
+		if (it > 500 and total_heritability > 1) or (it > 500 and sum(gamma)<0):
+			print(num,it,str(after - before),sigma_1,sigma_e,large_beta_ratio,total_heritability,sum(gamma))
 			continue
 
 		else:
