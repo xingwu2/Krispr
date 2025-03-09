@@ -60,12 +60,6 @@ def main():
 
 		cluster_dosage_passed_pd = pd.DataFrame(cluster_dosage_passed)
 		cluster_dosage_passed_pd.to_csv(args.output+"_Cluster_DosageMatrix_occurrence_"+str(args.cutoff)+".csv",header=cluster_names_passed,index=False)
-
-
-
-		cluster_dosage_pd = pd.DataFrame(cluster_dosage)
-		#cluster_dosage_pd.index = sequence_names
-		cluster_dosage_pd.to_csv(args.output+"_Cluster_DosageMatrix.csv",header=cluster_names,index=False)
 		
 		if args.unique == True:
 			dosage_pd = pd.DataFrame(dosage)
