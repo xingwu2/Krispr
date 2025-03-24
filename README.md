@@ -10,7 +10,7 @@ We highly recommend users to use mamba for installation
 
 ```mamba env create -f environment.yml```
 
-```mamba activate krispr```
+```conda activate krispr```
 
 ### Contact Info
 Wei Wei (doublevi123_at_gmail.com) / Xing Wu (wuxingtom_at_gmail.com)
