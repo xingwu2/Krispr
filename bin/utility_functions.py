@@ -266,7 +266,7 @@ def generate_DM(sequences,sorted_kmers,k,n):
 	r = len(sequences)
 	c = len(sorted_kmers)
 
-	DM_matrix = np.zeros((r,c),dtype=np.uint32)
+	DM_matrix = np.zeros((r,c),dtype=np.uint16)
 
 	# Create a lookup dictionary for kmer positions
 	kmer_to_index = {kmer: idx for idx, kmer in enumerate(sorted_kmers)}
