@@ -58,7 +58,7 @@ with open(args.fasta,"r") as FILE:
 				fasta_sequences[name] = ""
 			else:
 				print("There are multiple %s sequences." %(name))
-				sys.exit("ERROR: There are duplicated names in your fasta file. Please double check! ")
+                                next
 
 		else:
 			fasta_sequences[name] += line
@@ -84,8 +84,7 @@ for key in fasta_sequences:
 		if kmer in kmer_sequences:
 			kmer_sequences[kmer][1] += 1
 		else:
-			sys.exit("ERROR: found a kmer in fasta sequence but is not present in the unique kmer file! ")
-
+			print(key,kmer,sequence,"WARNING: found a kmer in fasta sequence but is not present in the unique kmer file! ")
 		start = start + 1
 		end = start + k
 
