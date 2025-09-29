@@ -57,8 +57,8 @@ with open(args.fasta,"r") as FILE:
 			if name not in fasta_sequences:
 				fasta_sequences[name] = ""
 			else:
-				print("There are multiple %s sequences." %(name))
-				next
+				sys.exit("There are multiple %s sequences." %(name))
+				
 
 		else:
 			fasta_sequences[name] += line
