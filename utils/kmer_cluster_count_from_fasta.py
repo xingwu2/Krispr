@@ -58,7 +58,7 @@ with open(args.fasta,"r") as FILE:
 				fasta_sequences[name] = ""
 			else:
 				print("There are multiple %s sequences." %(name))
-                                next
+				next
 
 		else:
 			fasta_sequences[name] += line
